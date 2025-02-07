@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema de Cotação de Frete - Novo Modelo</title>
+  <!-- Tailwind CSS CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <!-- Arquivo CSS customizado -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-gray-100">
+  <div class="container mx-auto p-4">
+    <h1 class="text-3xl font-bold text-center mb-6">Cotações de Frete - Novo Modelo</h1>
+    <form id="freteForm" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+      <!-- Peso Real -->
+      <div class="mb-4">
+        <label class="block text-gray-700 text-sm font-bold mb-2" for="peso">Peso Real (kg):</label>
+        <input id="peso" type="number" step="any" placeholder="Digite o peso em kg" class="shadow appearance-none border rounded w-full py-2 px-3">
+      </div>
+      <!-- Dimensões para Cubagem (opcional) -->
+      <div class="grid grid-cols-3 gap-4 mb-4">
+        <div>
+          <label class="block text-gray-700 text-sm font-bold mb-2" for="comprimento">Comprimento (cm):</label>
+          <input id="comprimento" type="number" step="any" placeholder="cm" class="shadow appearance-none border rounded w-full py-2 px-3">
+        </div>
+        <div>
+          <label class="block text-gray-700 text-sm font-bold mb-2" for="largura">Largura (cm):</label>
+          <input id="largura" type="number" step="any" placeholder="cm" class="shadow appearance-none border rounded w-full py-2 px-3">
+        </div>
+        <div>
+          <label class="block text-gray-700 text-sm font-bold mb-2" for="altura">Altura (cm):</label>
+          <input id="altura" type="number" step="any" placeholder="cm" class="shadow appearance-none border rounded w-full py-2 px-3">
+        </div>
+      </div>
+      <!-- Distância -->
+      <div class="mb-4">
+        <label class="block text-gray-700 text-sm font-bold mb-2" for="distancia">
+          Distância (km): <span class="text-xs text-gray-500">(ex.: 190 km)</span>
+        </label>
+        <input id="distancia" type="number" step="any" placeholder="Digite a distância em km" class="shadow appearance-none border rounded w-full py-2 px-3">
+      </div>
+      <!-- Número de Volumes -->
+      <div class="mb-4">
+        <label class="block text-gray-700 text-sm font-bold mb-2" for="volumes">Número de Volumes:</label>
+        <input id="volumes" type="number" step="1" placeholder="Digite o número de volumes" class="shadow appearance-none border rounded w-full py-2 px-3">
+      </div>
+      <!-- Valor da NF -->
+      <div class="mb-4">
+        <label class="block text-gray-700 text-sm font-bold mb-2" for="valorCarga">Valor da NF (R$):</label>
+        <input id="valorCarga" type="number" step="any" placeholder="Digite o valor da NF" class="shadow appearance-none border rounded w-full py-2 px-3">
+      </div>
+      <!-- Taxa de Entrega -->
+      <div class="mb-4">
+        <label class="block text-gray-700 text-sm font-bold mb-2" for="txEntrega">Taxa de Entrega (R$):</label>
+        <input id="txEntrega" type="number" step="any" placeholder="Digite a taxa de entrega" class="shadow appearance-none border rounded w-full py-2 px-3">
+      </div>
+      <!-- Taxa de Coleta -->
+      <div class="mb-4">
+        <label class="block text-gray-700 text-sm font-bold mb-2" for="txColeta">Taxa de Coleta (R$):</label>
+        <input id="txColeta" type="number" step="any" placeholder="Digite a taxa de coleta" class="shadow appearance-none border rounded w-full py-2 px-3">
+      </div>
+      <!-- Entrega Expressa -->
+      <div class="mb-4">
+        <label class="inline-flex items-center">
+          <input id="express" type="checkbox" class="form-checkbox">
+          <span class="ml-2">Entrega Expressa (20% adicional)</span>
+        </label>
+      </div>
+      <!-- Botão de Calcular -->
+      <div class="flex items-center justify-between">
+        <button id="calcular" type="button" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+          Calcular Frete
+        </button>
+      </div>
+    </form>
+    <!-- Área de Resultado -->
+    <div id="resultado" class="bg-white shadow-md rounded px-8 pt-6 pb-8">
+      <h2 class="text-2xl font-bold mb-4">Detalhamento do Frete</h2>
+      <div id="detalhesFrete">
+        <!-- Os detalhes serão inseridos via JavaScript -->
+      </div>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
