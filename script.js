@@ -38,26 +38,24 @@ function setupCurrencyFormatting(idsArray) {
   });
 }
 
-// Lista de IDs de inputs que representam valores monetários
+// Lista de IDs de inputs monetários
 const currencyInputIds = [
   "valorCarga",
   "txEntrega",
   "txColeta",
   "overrideFretePeso",
-  "overrideFreteValor",
-  "discountValue"
+  "overrideFreteValor"
 ];
 
-// Configura a formatação dos inputs que já estão na página
 document.addEventListener("DOMContentLoaded", function() {
   setupCurrencyFormatting(currencyInputIds);
 });
 
-// Variável global para armazenar os componentes adicionais do frete (usados no recálculo via override)
+// Variável global para armazenar os componentes adicionais do frete
 let feeComponents = {};
 
 function calculateFreight() {
-  // Lê os valores dos inputs (para os campos monetários, usamos parseCurrency)
+  // Leitura dos valores dos inputs
   const peso = parseFloat(document.getElementById("peso").value) || 0;
   const comprimento = parseFloat(document.getElementById("comprimento").value) || 0;
   const largura = parseFloat(document.getElementById("largura").value) || 0;
@@ -69,11 +67,11 @@ function calculateFreight() {
   const txColeta = parseCurrency(document.getElementById("txColeta").value);
   const express = document.getElementById("express").checked;
   
-  // Cálculo do peso cubado (se dimensões forem informadas)
+  // Cálculo do peso cubado (se informado)
   const pesoCubado = (comprimento && largura && altura) ? (comprimento * largura * altura) / 6000 : 0;
   const pesoEfetivo = Math.max(peso, pesoCubado);
   
-  // Tabela de tarifas (por intervalos de peso)
+  // Tabela de tarifas por intervalo de peso
   let tarifaPorKm = 0, valorMinimo = 0, faixa = "";
   if (pesoEfetivo <= 10) {
     tarifaPorKm = 0.20; valorMinimo = 40.00; faixa = "0 a 10 kg";
@@ -111,7 +109,7 @@ function calculateFreight() {
   let freteBaseCalculado = tarifaPorKm * distancia;
   let freteBase = (freteBaseCalculado < valorMinimo) ? valorMinimo : freteBaseCalculado;
   
-  // Adicionais
+  // Cálculo dos adicionais
   const adValorem = valorCarga * 0.001;
   let extraVolume = 0;
   if (volumes > 1) {
@@ -128,7 +126,7 @@ function calculateFreight() {
     totalFrete += adicionalExpress;
   }
   
-  // Armazena os componentes para override
+  // Armazena os componentes adicionais para override
   feeComponents = {
     txEntrega: txEntrega,
     txColeta: txColeta,
@@ -138,10 +136,11 @@ function calculateFreight() {
     adicionalExpress: adicionalExpress
   };
   
-  // Valores padrão para override (50% do frete base para cada)
+  // Valores padrão para os inputs de override: 50% do frete base para cada
   let defaultOverridePeso = freteBase * 0.5;
   let defaultOverrideValor = freteBase * 0.5;
   
+  // Monta o detalhamento da cotação
   let resultadoHTML = `<p><strong>Peso Real:</strong> ${peso.toFixed(2)} kg</p>`;
   if (pesoCubado > peso) {
     resultadoHTML += `<p><strong>Peso Cubado:</strong> ${pesoCubado.toFixed(2)} kg</p>`;
@@ -167,7 +166,7 @@ function calculateFreight() {
   resultadoHTML += `<hr>`;
   resultadoHTML += `<p class="font-bold text-xl text-blue-600"><strong>Total do Frete (calculado):</strong> R$ ${totalFrete.toFixed(2)}</p>`;
   
-  // Seção de override com campo de desconto
+  // Seção de override sem desconto
   resultadoHTML += `
     <div class="override-section mt-6">
       <h3 class="text-xl font-bold mb-2">Ajuste da Base do Frete</h3>
@@ -179,23 +178,18 @@ function calculateFreight() {
         <label for="overrideFreteValor" class="block text-gray-700 font-medium mb-1">Frete-Valor (R$):</label>
         <input id="overrideFreteValor" type="text" step="any" value="${defaultOverrideValor.toFixed(2)}" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500">
       </div>
-      <div class="mb-4">
-        <label for="discountValue" class="block text-gray-700 font-medium mb-1">Desconto (R$):</label>
-        <input id="discountValue" type="text" step="any" value="0.00" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500">
-      </div>
       <p class="font-bold text-xl" id="finalTotalOverride"><strong>Total do Frete (final):</strong> R$ ${totalFrete.toFixed(2)}</p>
     </div>
   `;
   
   document.getElementById("detalhesFrete").innerHTML = resultadoHTML;
   
-  // Adiciona eventos para override e desconto
+  // Adiciona os eventos para atualizar o total final quando os valores de override mudarem
   document.getElementById("overrideFretePeso").addEventListener("input", updateFinalFreight);
   document.getElementById("overrideFreteValor").addEventListener("input", updateFinalFreight);
-  document.getElementById("discountValue").addEventListener("input", updateFinalFreight);
   
   // Aplica formatação aos inputs adicionados dinamicamente
-  setupCurrencyFormatting(["overrideFretePeso", "overrideFreteValor", "discountValue"]);
+  setupCurrencyFormatting(["overrideFretePeso", "overrideFreteValor"]);
 }
 
 function updateFinalFreight() {
@@ -204,16 +198,12 @@ function updateFinalFreight() {
   let overriddenBase = overridePeso + overrideValor;
   
   let otherFees = feeComponents.txEntrega + feeComponents.txColeta + feeComponents.adValorem + feeComponents.extraVolume;
-  let newSubtotal = overriddenBase + otherFees;
-  let newICMS = newSubtotal * 0.12;
-  let newTotal = newSubtotal + newICMS;
+  let subtotal = overriddenBase + otherFees;
+  let icms = subtotal * 0.12;
+  let newTotal = subtotal + icms;
   if (feeComponents.express) {
     newTotal *= 1.20;
   }
-  
-  let discount = parseCurrency(document.getElementById("discountValue").value);
-  newTotal = newTotal - discount;
-  if (newTotal < 0) newTotal = 0;
   
   document.getElementById("finalTotalOverride").innerHTML = `<strong>Total do Frete (final):</strong> R$ ${newTotal.toFixed(2)}`;
 }

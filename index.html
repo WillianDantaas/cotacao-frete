@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sistema de Cotação de Frete - Visual Intuitivo</title>
+  <title>Sistema de Cotação de Frete - Visual Intuitivo (Sem Desconto)</title>
   <!-- Tailwind CSS CDN -->
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <!-- Arquivo CSS customizado -->
@@ -52,7 +52,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label for="valorCarga" class="block text-gray-700 font-medium mb-1">Valor da NF (R$):</label>
-            <!-- Alterado para type="text" para permitir formatação -->
+            <!-- Inputs monetários foram alterados para type="text" -->
             <input id="valorCarga" type="text" placeholder="Ex.: 1020" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
           </div>
           <div class="grid grid-cols-2 gap-4">
@@ -84,10 +84,12 @@
     <div id="resultado" class="bg-white shadow-lg rounded-lg p-6">
       <h2 class="text-2xl font-bold mb-4 border-b pb-2">Resultado da Cotação</h2>
       <div id="detalhesFrete" class="space-y-3">
-        <!-- Aqui o detalhamento será inserido via JavaScript -->
+        <!-- Aqui o detalhamento da cotação, junto com os inputs de override, será inserido via JavaScript -->
       </div>
     </div>
   </div>
+  
+  <!-- Script JS -->
   <script src="script.js"></script>
 </body>
 </html>
