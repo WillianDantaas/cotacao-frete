@@ -51,7 +51,7 @@ document.addEventListener("DOMContentLoaded", function() {
   setupCurrencyFormatting(currencyInputIds);
 });
 
-// Variável global para armazenar os componentes adicionais do frete
+// Variável global para armazenar os componentes adicionais do frete (usados no recálculo via override)
 let feeComponents = {};
 
 function calculateFreight() {
@@ -109,16 +109,21 @@ function calculateFreight() {
   let freteBaseCalculado = tarifaPorKm * distancia;
   let freteBase = (freteBaseCalculado < valorMinimo) ? valorMinimo : freteBaseCalculado;
   
-  // Cálculo dos adicionais
+  // Cálculo dos adicionais:
+  // Ad Valorem: 0,1% do valor da NF
   const adValorem = valorCarga * 0.001;
+  
+  // **Nova regra de volumes:** Se houver mais de 3 volumes, acrescenta R$ 0,70 por volume excedente
   let extraVolume = 0;
-  if (volumes > 1) {
-    extraVolume = Math.floor((volumes - 1) / 5) * (0.015 * freteBase);
+  if (volumes > 3) {
+    extraVolume = (volumes - 3) * 0.70;
   }
   
+  // Soma das taxas antes do ICMS
   let somaTaxas = freteBase + adValorem + txEntrega + txColeta + extraVolume;
   const icms = somaTaxas * 0.12;
   
+  // Total do frete antes do adicional de entrega expressa
   let totalFrete = somaTaxas + icms;
   let adicionalExpress = 0;
   if (express) {
@@ -126,7 +131,7 @@ function calculateFreight() {
     totalFrete += adicionalExpress;
   }
   
-  // Armazena os componentes adicionais para override
+  // Armazena os componentes adicionais para uso no recálculo via override
   feeComponents = {
     txEntrega: txEntrega,
     txColeta: txColeta,
@@ -136,7 +141,7 @@ function calculateFreight() {
     adicionalExpress: adicionalExpress
   };
   
-  // Valores padrão para os inputs de override: 50% do frete base para cada
+  // Valores padrão para os inputs de override: dividindo o frete base em 50% para cada
   let defaultOverridePeso = freteBase * 0.5;
   let defaultOverrideValor = freteBase * 0.5;
   
@@ -156,7 +161,7 @@ function calculateFreight() {
   resultadoHTML += `<p><strong>Taxa de Entrega:</strong> R$ ${txEntrega.toFixed(2)}</p>`;
   resultadoHTML += `<p><strong>Taxa de Coleta:</strong> R$ ${txColeta.toFixed(2)}</p>`;
   if (extraVolume > 0) {
-    resultadoHTML += `<p><strong>Acréscimo por Volumes (1,5% a cada 5 volumes):</strong> R$ ${extraVolume.toFixed(2)}</p>`;
+    resultadoHTML += `<p><strong>Acréscimo por Volumes (R$ 0,70 a cada volume excedente de 3):</strong> R$ ${extraVolume.toFixed(2)}</p>`;
   }
   resultadoHTML += `<p><strong>Soma das Taxas:</strong> R$ ${somaTaxas.toFixed(2)}</p>`;
   resultadoHTML += `<p><strong>ICMS (12%):</strong> R$ ${icms.toFixed(2)}</p>`;
@@ -166,7 +171,7 @@ function calculateFreight() {
   resultadoHTML += `<hr>`;
   resultadoHTML += `<p class="font-bold text-xl text-blue-600"><strong>Total do Frete (calculado):</strong> R$ ${totalFrete.toFixed(2)}</p>`;
   
-  // Seção de override sem desconto
+  // Seção de override (sem campo de desconto)
   resultadoHTML += `
     <div class="override-section mt-6">
       <h3 class="text-xl font-bold mb-2">Ajuste da Base do Frete</h3>
@@ -184,11 +189,11 @@ function calculateFreight() {
   
   document.getElementById("detalhesFrete").innerHTML = resultadoHTML;
   
-  // Adiciona os eventos para atualizar o total final quando os valores de override mudarem
+  // Adiciona eventos para atualizar o total final quando os valores de override mudarem
   document.getElementById("overrideFretePeso").addEventListener("input", updateFinalFreight);
   document.getElementById("overrideFreteValor").addEventListener("input", updateFinalFreight);
   
-  // Aplica formatação aos inputs adicionados dinamicamente
+  // Aplica formatação aos inputs de override
   setupCurrencyFormatting(["overrideFretePeso", "overrideFreteValor"]);
 }
 
