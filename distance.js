@@ -14,15 +14,13 @@ const cidadesAtendidas = [
     "São Paulo"
   ];
   
-  // Função para validar se a cidade informada está na lista de atendidas
   function validarCidade(cidade) {
     return cidadesAtendidas.some(c => c.toLowerCase() === cidade.trim().toLowerCase());
   }
   
-  // Função para obter a distância (em km) usando o proxy
   async function getDistanceFromProxy(origem, destino) {
-    // Note que usamos "origin" e "destination" (sem "s") para atender à requisição do proxy
-    const url = `http://localhost:5000/distance?origin=${encodeURIComponent(origem)}&destination=${encodeURIComponent(destino)}`;
+    // Agora usamos "origins" e "destinations" conforme o proxy espera
+    const url = `http://localhost:5000/distance?origins=${encodeURIComponent(origem)}&destinations=${encodeURIComponent(destino)}`;
     console.log("[Distance] URL da requisição:", url);
     
     try {
@@ -56,7 +54,6 @@ const cidadesAtendidas = [
     }
   }
   
-  // Listener para o botão "Calcular Distância"
   document.getElementById("calcularDistancia").addEventListener("click", function() {
     const origem = document.getElementById("origem").value;
     const ufOrigem = document.getElementById("ufOrigem").value;
@@ -81,11 +78,11 @@ const cidadesAtendidas = [
       return;
     }
     
-    // Constrói as variáveis completas para a requisição (exemplo: "Porto Ferreira, SP")
+    // Constrói as variáveis completas (ex.: "Porto Ferreira, SP")
     const origemCompleta = `${origem.trim()}, ${ufOrigem}`;
     const destinoCompleta = `${destino.trim()}, ${ufDestino}`;
     
-    console.log("[Distance] Origem Completa:", origemCompleta, "Destino Completo:", destinoCompleta);
+    console.log("[Distance] Origem Completa:", origemCompleta, "| Destino Completo:", destinoCompleta);
     
     getDistanceFromProxy(origemCompleta, destinoCompleta)
       .then(distance => {
