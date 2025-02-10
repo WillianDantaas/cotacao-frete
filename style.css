@@ -1,27 +1,41 @@
 /* style.css */
-
-/* Customizações para melhorar a visualização dos resultados */
 body {
-    background-color: #f7fafc;
-  }
-  
-  h2 {
-    color: #2d3748;
-  }
-  
-  #detalhesFrete p {
-    font-size: 1rem;
-    color: #4a5568;
-  }
-  
-  #detalhesFrete .font-bold.text-xl {
-    color: #2b6cb0;
-  }
-  
-  .override-section {
-    background-color: #edf2f7;
-    padding: 1rem;
-    border-radius: 0.5rem;
-    border: 1px solid #e2e8f0;
-  }
-  
+  background-color: #f7fafc;
+}
+
+h2 {
+  color: #2d3748;
+}
+
+#detalhesFrete p {
+  font-size: 1rem;
+  color: #4a5568;
+}
+
+#detalhesFrete .font-bold.text-xl {
+  color: #2b6cb0;
+}
+
+.override-section {
+  background-color: #edf2f7;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+}
+
+#volumesList {
+  margin-top: 1rem;
+}
+#volumesList table {
+  width: 100%;
+  border-collapse: collapse;
+}
+#volumesList th, #volumesList td {
+  border: 1px solid #cbd5e0;
+  padding: 0.5rem;
+  text-align: center;
+}
+#volumesList th {
+  background-color: #e2e8f0;
+  color: #2d3748;
+}

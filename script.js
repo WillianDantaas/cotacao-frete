@@ -1,33 +1,30 @@
-// Função auxiliar para converter uma string formatada como moeda para número
+// ==========================
+// Funções de Formatação Monetária
+// ==========================
 function parseCurrency(value) {
   if (!value) return 0;
-  // Remove tudo que não seja dígito, vírgula, ponto ou sinal de menos
-  let cleanValue = value.replace(/[^0-9,.-]+/g, '');
-  // Remove os pontos (separador de milhar) e substitui a vírgula pelo ponto decimal
+  // Remove "R$", espaços e caracteres não numéricos (exceto vírgula, ponto e sinal de menos)
+  let cleanValue = value.replace(/R\$\s?/g, '').replace(/[^0-9,.-]+/g, '');
   cleanValue = cleanValue.replace(/\./g, '').replace(',', '.');
   return parseFloat(cleanValue) || 0;
 }
 
-// Função para formatar um número como moeda (pt-BR)
 function formatCurrency(value) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 }
 
-// Ao perder o foco, formata o valor como moeda
 function formatCurrencyOnBlur(event) {
   let input = event.target;
   let value = parseCurrency(input.value);
   input.value = formatCurrency(value);
 }
 
-// Ao ganhar o foco, remove a formatação para facilitar a edição
 function unformatCurrencyOnFocus(event) {
   let input = event.target;
   let value = parseCurrency(input.value);
   input.value = value.toString();
 }
 
-// Configura os listeners de formatação para os inputs monetários
 function setupCurrencyFormatting(idsArray) {
   idsArray.forEach(id => {
     const input = document.getElementById(id);
@@ -38,150 +35,247 @@ function setupCurrencyFormatting(idsArray) {
   });
 }
 
-// Lista de IDs de inputs monetários
 const currencyInputIds = [
   "valorCarga",
   "txEntrega",
   "txColeta",
   "overrideFretePeso",
-  "overrideFreteValor"
+  "overrideFreteValor",
+  "volumeValor"
 ];
 
 document.addEventListener("DOMContentLoaded", function() {
   setupCurrencyFormatting(currencyInputIds);
 });
 
-// Variável global para armazenar os componentes adicionais do frete (usados no recálculo via override)
+// ==========================
+// Variável para armazenar os componentes para override e índice de edição
+// ==========================
 let feeComponents = {};
+let editIndex = -1; // -1 indica que não estamos editando nenhum volume
 
+// ==========================
+// Função para calcular o frete base para um grupo (usando a tabela original)
+// ==========================
+function calcFreightBaseForWeight(effectiveWeight, distance) {
+  if (effectiveWeight <= 0) return 0;
+  let tariff = 0, minVal = 0;
+  if (effectiveWeight <= 10) { tariff = 0.20; minVal = 40.00; }
+  else if (effectiveWeight <= 20) { tariff = 0.22; minVal = 45.00; }
+  else if (effectiveWeight <= 30) { tariff = 0.24; minVal = 50.00; }
+  else if (effectiveWeight <= 40) { tariff = 0.26; minVal = 55.00; }
+  else if (effectiveWeight <= 50) { tariff = 0.28; minVal = 60.00; }
+  else if (effectiveWeight <= 60) { tariff = 0.30; minVal = 65.00; }
+  else if (effectiveWeight <= 70) { tariff = 0.32; minVal = 70.00; }
+  else if (effectiveWeight <= 80) { tariff = 0.34; minVal = 75.00; }
+  else if (effectiveWeight <= 90) { tariff = 0.36; minVal = 80.00; }
+  else if (effectiveWeight <= 100) { tariff = 0.38; minVal = 85.00; }
+  else if (effectiveWeight <= 150) { tariff = 0.40; minVal = 100.00; }
+  else if (effectiveWeight <= 200) { tariff = 0.42; minVal = 120.00; }
+  else if (effectiveWeight <= 500) { tariff = 0.50; minVal = 150.00; }
+  else if (effectiveWeight <= 700) { tariff = 0.60; minVal = 200.00; }
+  else if (effectiveWeight <= 1000) { tariff = 0.70; minVal = 250.00; }
+  
+  let calc = tariff * distance;
+  return calc < minVal ? minVal : calc;
+}
+
+// ==========================
+// Lógica para Volumes (Lista)
+// ==========================
+let volumesList = [];
+
+function updateVolumesDisplay() {
+  const volumesDiv = document.getElementById("volumesList");
+  if (volumesList.length === 0) {
+    volumesDiv.innerHTML = "<p>Nenhum volume adicionado.</p>";
+    return;
+  }
+  let html = `<table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Qtd</th>
+        <th>Peso Total (kg)</th>
+        <th>Peso Unitário (kg)</th>
+        <th>Comp. (m)</th>
+        <th>Larg. (m)</th>
+        <th>Alt. (m)</th>
+        <th>Valor Total (R$)</th>
+        <th>Ação</th>
+      </tr>
+    </thead>
+    <tbody>`;
+  volumesList.forEach((vol, index) => {
+    // Calcula o peso unitário: se quantidade > 1, divide o peso total pelo número de volumes; senão, usa o valor informado.
+    let unitPeso = (vol.quantidade > 1 ? vol.peso / vol.quantidade : vol.peso);
+    html += `<tr>
+      <td>${index + 1}</td>
+      <td>${vol.quantidade}</td>
+      <td>${vol.peso.toFixed(2)}</td>
+      <td>${unitPeso.toFixed(2)}</td>
+      <td>${vol.comprimento.toFixed(2)}</td>
+      <td>${vol.largura.toFixed(2)}</td>
+      <td>${vol.altura.toFixed(2)}</td>
+      <td>${formatCurrency(vol.valor)}</td>
+      <td>
+        <button onclick="editarVolume(${index})" class="bg-yellow-500 text-white px-2 py-1 rounded">Editar</button>
+        <button onclick="removerVolume(${index})" class="bg-red-500 text-white px-2 py-1 rounded ml-1">Remover</button>
+      </td>
+    </tr>`;
+  });
+  html += `</tbody></table>`;
+  volumesDiv.innerHTML = html;
+}
+
+function adicionarOuAtualizarVolume() {
+  const quantidade = parseInt(document.getElementById("volumeQuantidade").value) || 0;
+  if (quantidade <= 0) {
+    alert("A quantidade deve ser maior que zero.");
+    return;
+  }
+  const peso = parseFloat(document.getElementById("volumePeso").value) || 0;
+  const comprimento = parseFloat(document.getElementById("volumeComprimento").value) || 0;
+  const largura = parseFloat(document.getElementById("volumeLargura").value) || 0;
+  const altura = parseFloat(document.getElementById("volumeAltura").value) || 0;
+  const valor = parseCurrency(document.getElementById("volumeValor").value);
+  
+  // Se estivermos editando (editIndex >= 0), atualiza o volume; senão, adiciona novo
+  if (editIndex >= 0) {
+    volumesList[editIndex] = { quantidade, peso, comprimento, largura, altura, valor };
+    editIndex = -1;
+    document.getElementById("adicionarVolume").textContent = "Adicionar Volume";
+  } else {
+    volumesList.push({ quantidade, peso, comprimento, largura, altura, valor });
+  }
+  
+  document.getElementById("volumeForm").reset();
+  updateVolumesDisplay();
+}
+
+function removerVolume(index) {
+  volumesList.splice(index, 1);
+  // Se estivermos editando o volume que foi removido, cancela a edição
+  if (editIndex === index) {
+    editIndex = -1;
+    document.getElementById("adicionarVolume").textContent = "Adicionar Volume";
+    document.getElementById("volumeForm").reset();
+  }
+  updateVolumesDisplay();
+}
+
+function editarVolume(index) {
+  // Define o índice global para edição
+  editIndex = index;
+  const vol = volumesList[index];
+  document.getElementById("volumeQuantidade").value = vol.quantidade;
+  document.getElementById("volumePeso").value = vol.peso;
+  document.getElementById("volumeComprimento").value = vol.comprimento;
+  document.getElementById("volumeLargura").value = vol.largura;
+  document.getElementById("volumeAltura").value = vol.altura;
+  document.getElementById("volumeValor").value = vol.valor;
+  // Muda o texto do botão para indicar que estamos atualizando
+  document.getElementById("adicionarVolume").textContent = "Atualizar Volume";
+}
+
+document.getElementById("adicionarVolume").addEventListener("click", adicionarOuAtualizarVolume);
+
+// ==========================
+// Cálculo do Frete
+// ==========================
 function calculateFreight() {
-  // Leitura dos valores dos inputs
-  const peso = parseFloat(document.getElementById("peso").value) || 0;
-  const comprimento = parseFloat(document.getElementById("comprimento").value) || 0;
-  const largura = parseFloat(document.getElementById("largura").value) || 0;
-  const altura = parseFloat(document.getElementById("altura").value) || 0;
-  const distancia = parseFloat(document.getElementById("distancia").value) || 0;
-  const volumes = parseInt(document.getElementById("volumes").value) || 1;
-  const valorCarga = parseCurrency(document.getElementById("valorCarga").value);
-  const txEntrega = parseCurrency(document.getElementById("txEntrega").value);
-  const txColeta = parseCurrency(document.getElementById("txColeta").value);
-  const express = document.getElementById("express").checked;
-  
-  // Cálculo do peso cubado (se informado)
-  const pesoCubado = (comprimento && largura && altura) ? (comprimento * largura * altura) / 6000 : 0;
-  const pesoEfetivo = Math.max(peso, pesoCubado);
-  
-  // Tabela de tarifas por intervalo de peso
-  let tarifaPorKm = 0, valorMinimo = 0, faixa = "";
-  if (pesoEfetivo <= 10) {
-    tarifaPorKm = 0.20; valorMinimo = 40.00; faixa = "0 a 10 kg";
-  } else if (pesoEfetivo <= 20) {
-    tarifaPorKm = 0.22; valorMinimo = 45.00; faixa = "10 a 20 kg";
-  } else if (pesoEfetivo <= 30) {
-    tarifaPorKm = 0.24; valorMinimo = 50.00; faixa = "20 a 30 kg";
-  } else if (pesoEfetivo <= 40) {
-    tarifaPorKm = 0.26; valorMinimo = 55.00; faixa = "30 a 40 kg";
-  } else if (pesoEfetivo <= 50) {
-    tarifaPorKm = 0.28; valorMinimo = 60.00; faixa = "40 a 50 kg";
-  } else if (pesoEfetivo <= 60) {
-    tarifaPorKm = 0.30; valorMinimo = 65.00; faixa = "50 a 60 kg";
-  } else if (pesoEfetivo <= 70) {
-    tarifaPorKm = 0.32; valorMinimo = 70.00; faixa = "60 a 70 kg";
-  } else if (pesoEfetivo <= 80) {
-    tarifaPorKm = 0.34; valorMinimo = 75.00; faixa = "70 a 80 kg";
-  } else if (pesoEfetivo <= 90) {
-    tarifaPorKm = 0.36; valorMinimo = 80.00; faixa = "80 a 90 kg";
-  } else if (pesoEfetivo <= 100) {
-    tarifaPorKm = 0.38; valorMinimo = 85.00; faixa = "90 a 100 kg";
-  } else if (pesoEfetivo <= 150) {
-    tarifaPorKm = 0.40; valorMinimo = 100.00; faixa = "100 a 150 kg";
-  } else if (pesoEfetivo <= 200) {
-    tarifaPorKm = 0.42; valorMinimo = 120.00; faixa = "150 a 200 kg";
-  } else if (pesoEfetivo <= 500) {
-    tarifaPorKm = 0.50; valorMinimo = 150.00; faixa = "200 a 500 kg";
-  } else if (pesoEfetivo <= 700) {
-    tarifaPorKm = 0.60; valorMinimo = 200.00; faixa = "500 a 700 kg";
-  } else if (pesoEfetivo <= 1000) {
-    tarifaPorKm = 0.70; valorMinimo = 250.00; faixa = "700 a 1000 kg";
+  if (volumesList.length === 0) {
+    alert("Adicione pelo menos um volume para calcular o frete.");
+    return;
   }
   
-  // Cálculo do frete base
-  let freteBaseCalculado = tarifaPorKm * distancia;
-  let freteBase = (freteBaseCalculado < valorMinimo) ? valorMinimo : freteBaseCalculado;
+  let totalPesoReal = 0;
+  let totalPesoCubado = 0;
+  let totalNF = 0;
+  let totalVolumes = 0;
   
-  // Cálculo dos adicionais:
-  // Ad Valorem: 0,1% do valor da NF
-  const adValorem = valorCarga * 0.001;
+  // Para cada volume, calculamos os totais.
+  volumesList.forEach(vol => {
+    totalVolumes += vol.quantidade;
+    totalNF += vol.quantidade * vol.valor;
+    // Aqui, tratamos o campo "peso": assumimos que o valor inserido é o peso total do grupo.
+    // Então, o peso unitário é: (peso informado) / (quantidade).
+    let unitPeso = (vol.quantidade > 1 ? vol.peso / vol.quantidade : vol.peso);
+    totalPesoReal += vol.peso;  // já que o usuário inseriu o peso total do grupo
+    if (vol.comprimento === 0 && vol.largura === 0 && vol.altura === 0) {
+      // Se as medidas forem 0, use o peso total informado para o grupo (sem cubagem adicional)
+      totalPesoCubado += vol.peso;
+    } else {
+      let unitCubed = (vol.comprimento * vol.largura * vol.altura) / 6000;
+      totalPesoCubado += vol.quantidade * unitCubed;
+    }
+  });
   
-  // **Nova regra de volumes:** Se houver mais de 3 volumes, acrescenta R$ 0,70 por volume excedente
+  const pesoEfetivo = Math.max(totalPesoReal, totalPesoCubado);
+  const distance = parseFloat(document.getElementById("distancia").value) || 0;
+  
+  let freteBase = calcFreightBaseForWeight(pesoEfetivo, distance);
+  
+  const adValorem = totalNF * 0.001;
+  const taxaEntrega = parseCurrency(document.getElementById("txEntrega").value);
+  const taxaColeta = parseCurrency(document.getElementById("txColeta").value);
   let extraVolume = 0;
-  if (volumes > 3) {
-    extraVolume = (volumes - 3) * 0.70;
+  if (totalVolumes > 3) {
+    extraVolume = (totalVolumes - 3) * 0.70;
   }
   
-  // Soma das taxas antes do ICMS
-  let somaTaxas = freteBase + adValorem + txEntrega + txColeta + extraVolume;
-  const icms = somaTaxas * 0.12;
-  
-  // Total do frete antes do adicional de entrega expressa
+  let somaTaxas = freteBase + adValorem + taxaEntrega + taxaColeta + extraVolume;
+  let icms = somaTaxas * 0.12;
   let totalFrete = somaTaxas + icms;
   let adicionalExpress = 0;
-  if (express) {
+  if (document.getElementById("express").checked) {
     adicionalExpress = totalFrete * 0.20;
     totalFrete += adicionalExpress;
   }
   
-  // Armazena os componentes adicionais para uso no recálculo via override
   feeComponents = {
-    txEntrega: txEntrega,
-    txColeta: txColeta,
+    txEntrega: taxaEntrega,
+    txColeta: taxaColeta,
     adValorem: adValorem,
     extraVolume: extraVolume,
-    express: express,
-    adicionalExpress: adicionalExpress
+    express: document.getElementById("express").checked,
+    adicionalExpress: adicionalExpress,
+    defaultOverridePeso: freteBase * 0.5,
+    defaultOverrideValor: freteBase * 0.5
   };
   
-  // Valores padrão para os inputs de override: dividindo o frete base em 50% para cada
-  let defaultOverridePeso = freteBase * 0.5;
-  let defaultOverrideValor = freteBase * 0.5;
-  
-  // Monta o detalhamento da cotação
-  let resultadoHTML = `<p><strong>Peso Real:</strong> ${peso.toFixed(2)} kg</p>`;
-  if (pesoCubado > peso) {
-    resultadoHTML += `<p><strong>Peso Cubado:</strong> ${pesoCubado.toFixed(2)} kg</p>`;
-  }
-  resultadoHTML += `<p><strong>Peso Efetivo:</strong> ${pesoEfetivo.toFixed(2)} kg (${faixa})</p>`;
+  let resultadoHTML = `<p><strong>Total de Volumes:</strong> ${totalVolumes}</p>`;
+  resultadoHTML += `<p><strong>Peso Real Total:</strong> ${totalPesoReal.toFixed(2)} kg</p>`;
+  resultadoHTML += `<p><strong>Peso Cubado Total:</strong> ${totalPesoCubado.toFixed(2)} kg</p>`;
+  resultadoHTML += `<p><strong>Peso Efetivo:</strong> ${pesoEfetivo.toFixed(2)} kg</p>`;
   resultadoHTML += `<hr>`;
-  resultadoHTML += `<p><strong>Tarifa:</strong> R$ ${tarifaPorKm.toFixed(2)} por km</p>`;
-  resultadoHTML += `<p><strong>Valor Mínimo do Frete Base:</strong> R$ ${valorMinimo.toFixed(2)}</p>`;
-  resultadoHTML += `<p><strong>Distância:</strong> ${distancia.toFixed(2)} km</p>`;
-  resultadoHTML += `<p><strong>Frete Base Calculado:</strong> R$ ${freteBase.toFixed(2)}</p>`;
+  resultadoHTML += `<p><strong>Frete Base:</strong> R$ ${freteBase.toFixed(2)}</p>`;
   resultadoHTML += `<hr>`;
   resultadoHTML += `<p><strong>Ad Valorem (0,1% da NF):</strong> R$ ${adValorem.toFixed(2)}</p>`;
-  resultadoHTML += `<p><strong>Taxa de Entrega:</strong> R$ ${txEntrega.toFixed(2)}</p>`;
-  resultadoHTML += `<p><strong>Taxa de Coleta:</strong> R$ ${txColeta.toFixed(2)}</p>`;
+  resultadoHTML += `<p><strong>Taxa de Entrega:</strong> R$ ${taxaEntrega.toFixed(2)}</p>`;
+  resultadoHTML += `<p><strong>Taxa de Coleta:</strong> R$ ${taxaColeta.toFixed(2)}</p>`;
   if (extraVolume > 0) {
-    resultadoHTML += `<p><strong>Acréscimo por Volumes (R$ 0,70 a cada volume excedente de 3):</strong> R$ ${extraVolume.toFixed(2)}</p>`;
+    resultadoHTML += `<p><strong>Acréscimo por Volumes (R$0,70 para cada volume acima de 3):</strong> R$ ${extraVolume.toFixed(2)}</p>`;
   }
   resultadoHTML += `<p><strong>Soma das Taxas:</strong> R$ ${somaTaxas.toFixed(2)}</p>`;
   resultadoHTML += `<p><strong>ICMS (12%):</strong> R$ ${icms.toFixed(2)}</p>`;
-  if (express) {
+  if (feeComponents.express) {
     resultadoHTML += `<p><strong>Adicional de Entrega Expressa (20%):</strong> R$ ${adicionalExpress.toFixed(2)}</p>`;
   }
   resultadoHTML += `<hr>`;
   resultadoHTML += `<p class="font-bold text-xl text-blue-600"><strong>Total do Frete (calculado):</strong> R$ ${totalFrete.toFixed(2)}</p>`;
   
-  // Seção de override (sem campo de desconto)
+  // Seção de override
   resultadoHTML += `
     <div class="override-section mt-6">
       <h3 class="text-xl font-bold mb-2">Ajuste da Base do Frete</h3>
       <div class="mb-4">
         <label for="overrideFretePeso" class="block text-gray-700 font-medium mb-1">Frete-Peso (R$):</label>
-        <input id="overrideFretePeso" type="text" step="any" value="${defaultOverridePeso.toFixed(2)}" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500">
+        <input id="overrideFretePeso" type="text" step="any" class="w-full border rounded px-3 py-2">
       </div>
       <div class="mb-4">
         <label for="overrideFreteValor" class="block text-gray-700 font-medium mb-1">Frete-Valor (R$):</label>
-        <input id="overrideFreteValor" type="text" step="any" value="${defaultOverrideValor.toFixed(2)}" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500">
+        <input id="overrideFreteValor" type="text" step="any" class="w-full border rounded px-3 py-2">
       </div>
       <p class="font-bold text-xl" id="finalTotalOverride"><strong>Total do Frete (final):</strong> R$ ${totalFrete.toFixed(2)}</p>
     </div>
@@ -189,26 +283,28 @@ function calculateFreight() {
   
   document.getElementById("detalhesFrete").innerHTML = resultadoHTML;
   
-  // Adiciona eventos para atualizar o total final quando os valores de override mudarem
+  // Preenche os inputs de override com os valores padrão
+  document.getElementById("overrideFretePeso").value = feeComponents.defaultOverridePeso.toFixed(2);
+  document.getElementById("overrideFreteValor").value = feeComponents.defaultOverrideValor.toFixed(2);
+  
   document.getElementById("overrideFretePeso").addEventListener("input", updateFinalFreight);
   document.getElementById("overrideFreteValor").addEventListener("input", updateFinalFreight);
   
-  // Aplica formatação aos inputs de override
   setupCurrencyFormatting(["overrideFretePeso", "overrideFreteValor"]);
 }
 
 function updateFinalFreight() {
-  let overridePeso = parseCurrency(document.getElementById("overrideFretePeso").value);
-  let overrideValor = parseCurrency(document.getElementById("overrideFreteValor").value);
-  let overriddenBase = overridePeso + overrideValor;
+  let pesoStr = document.getElementById("overrideFretePeso").value.trim();
+  let valorStr = document.getElementById("overrideFreteValor").value.trim();
+  let overridePeso = (pesoStr === "" ? feeComponents.defaultOverridePeso : parseCurrency(pesoStr));
+  let overrideValor = (valorStr === "" ? feeComponents.defaultOverrideValor : parseCurrency(valorStr));
   
+  let overriddenBase = overridePeso + overrideValor;
   let otherFees = feeComponents.txEntrega + feeComponents.txColeta + feeComponents.adValorem + feeComponents.extraVolume;
   let subtotal = overriddenBase + otherFees;
   let icms = subtotal * 0.12;
   let newTotal = subtotal + icms;
-  if (feeComponents.express) {
-    newTotal *= 1.20;
-  }
+  if (feeComponents.express) { newTotal *= 1.20; }
   
   document.getElementById("finalTotalOverride").innerHTML = `<strong>Total do Frete (final):</strong> R$ ${newTotal.toFixed(2)}`;
 }
