@@ -2,12 +2,12 @@
 import express from "express";
 import cors from "cors";
 import fetch from "node-fetch";
+import dotenv from 'dotenv'
+dotenv.config()
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-
-const API_KEY = "AIzaSyB7LLaKiTbQaHbtlIO-Jcvvqg5ryEpc-9c"; // Substitua pela sua chave de API do Google
 
 app.get("/distance", async (req, res) => {
   try {
@@ -17,7 +17,7 @@ app.get("/distance", async (req, res) => {
     }
 
     // Constrói a URL para a API Distance Matrix
-    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?units=metric&origins=${encodeURIComponent(origins)}&destinations=${encodeURIComponent(destinations)}&key=${API_KEY}`;
+    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?units=metric&origins=${encodeURIComponent(origins)}&destinations=${encodeURIComponent(destinations)}&key=${process.env.API_KEY}`;
     console.log("[Proxy] URL solicitada ao Google:", url);
 
     const response = await fetch(url);

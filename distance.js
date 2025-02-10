@@ -91,7 +91,7 @@ const cidadesAtendidas = [
       .then(distance => {
         console.log("[Distance] Distância calculada (km):", distance);
         document.getElementById("distancia").value = distance.toFixed(2);
-        // alert("Distância atualizada: " + distance.toFixed(2) + " km");
+        alert("Distância atualizada: " + distance.toFixed(2) + " km");
       })
       .catch(error => {
         console.error("[Distance] Erro ao obter a distância:", error);
