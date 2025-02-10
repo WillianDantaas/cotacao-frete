@@ -3,7 +3,6 @@
 // ==========================
 function parseCurrency(value) {
   if (!value) return 0;
-  // Remove "R$", espaços e caracteres não numéricos (exceto vírgula, ponto e sinal de menos)
   let cleanValue = value.replace(/R\$\s?/g, '').replace(/[^0-9,.-]+/g, '');
   cleanValue = cleanValue.replace(/\./g, '').replace(',', '.');
   return parseFloat(cleanValue) || 0;
@@ -49,13 +48,13 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 // ==========================
-// Variável para armazenar os componentes para override e índice de edição
+// Variável global para override e índice de edição
 // ==========================
 let feeComponents = {};
-let editIndex = -1; // -1 indica que não estamos editando nenhum volume
+let editIndex = -1; // -1 indica que não estamos editando
 
 // ==========================
-// Função para calcular o frete base para um grupo (usando a tabela original)
+// Função para calcular o frete base para um grupo (tabela original)
 // ==========================
 function calcFreightBaseForWeight(effectiveWeight, distance) {
   if (effectiveWeight <= 0) return 0;
@@ -107,8 +106,8 @@ function updateVolumesDisplay() {
     </thead>
     <tbody>`;
   volumesList.forEach((vol, index) => {
-    // Calcula o peso unitário: se quantidade > 1, divide o peso total pelo número de volumes; senão, usa o valor informado.
-    let unitPeso = (vol.quantidade > 1 ? vol.peso / vol.quantidade : vol.peso);
+    // Peso unitário: divide o peso total pela quantidade
+    let unitPeso = (vol.quantidade > 0 ? vol.peso / vol.quantidade : 0);
     html += `<tr>
       <td>${index + 1}</td>
       <td>${vol.quantidade}</td>
@@ -140,22 +139,21 @@ function adicionarOuAtualizarVolume() {
   const altura = parseFloat(document.getElementById("volumeAltura").value) || 0;
   const valor = parseCurrency(document.getElementById("volumeValor").value);
   
-  // Se estivermos editando (editIndex >= 0), atualiza o volume; senão, adiciona novo
+  const novoVolume = { quantidade, peso, comprimento, largura, altura, valor };
+  
   if (editIndex >= 0) {
-    volumesList[editIndex] = { quantidade, peso, comprimento, largura, altura, valor };
+    volumesList[editIndex] = novoVolume;
     editIndex = -1;
     document.getElementById("adicionarVolume").textContent = "Adicionar Volume";
   } else {
-    volumesList.push({ quantidade, peso, comprimento, largura, altura, valor });
+    volumesList.push(novoVolume);
   }
-  
   document.getElementById("volumeForm").reset();
   updateVolumesDisplay();
 }
 
 function removerVolume(index) {
   volumesList.splice(index, 1);
-  // Se estivermos editando o volume que foi removido, cancela a edição
   if (editIndex === index) {
     editIndex = -1;
     document.getElementById("adicionarVolume").textContent = "Adicionar Volume";
@@ -165,7 +163,6 @@ function removerVolume(index) {
 }
 
 function editarVolume(index) {
-  // Define o índice global para edição
   editIndex = index;
   const vol = volumesList[index];
   document.getElementById("volumeQuantidade").value = vol.quantidade;
@@ -174,7 +171,6 @@ function editarVolume(index) {
   document.getElementById("volumeLargura").value = vol.largura;
   document.getElementById("volumeAltura").value = vol.altura;
   document.getElementById("volumeValor").value = vol.valor;
-  // Muda o texto do botão para indicar que estamos atualizando
   document.getElementById("adicionarVolume").textContent = "Atualizar Volume";
 }
 
@@ -194,16 +190,16 @@ function calculateFreight() {
   let totalNF = 0;
   let totalVolumes = 0;
   
-  // Para cada volume, calculamos os totais.
   volumesList.forEach(vol => {
     totalVolumes += vol.quantidade;
     totalNF += vol.quantidade * vol.valor;
-    // Aqui, tratamos o campo "peso": assumimos que o valor inserido é o peso total do grupo.
-    // Então, o peso unitário é: (peso informado) / (quantidade).
-    let unitPeso = (vol.quantidade > 1 ? vol.peso / vol.quantidade : vol.peso);
-    totalPesoReal += vol.peso;  // já que o usuário inseriu o peso total do grupo
+    // Aqui, assumimos que o "peso" inserido é o peso total do grupo.
+    // Para obter o peso unitário, fazemos: unitPeso = (peso informado) / (quantidade)
+    // Porém, para o cálculo do total real, usamos o valor inserido (já é o total)
+    totalPesoReal += vol.peso;
+    
+    // Para a cubagem: se as medidas forem todas 0, usamos o peso (total) do grupo; senão, calculamos
     if (vol.comprimento === 0 && vol.largura === 0 && vol.altura === 0) {
-      // Se as medidas forem 0, use o peso total informado para o grupo (sem cubagem adicional)
       totalPesoCubado += vol.peso;
     } else {
       let unitCubed = (vol.comprimento * vol.largura * vol.altura) / 6000;
@@ -265,7 +261,6 @@ function calculateFreight() {
   resultadoHTML += `<hr>`;
   resultadoHTML += `<p class="font-bold text-xl text-blue-600"><strong>Total do Frete (calculado):</strong> R$ ${totalFrete.toFixed(2)}</p>`;
   
-  // Seção de override
   resultadoHTML += `
     <div class="override-section mt-6">
       <h3 class="text-xl font-bold mb-2">Ajuste da Base do Frete</h3>
@@ -283,7 +278,6 @@ function calculateFreight() {
   
   document.getElementById("detalhesFrete").innerHTML = resultadoHTML;
   
-  // Preenche os inputs de override com os valores padrão
   document.getElementById("overrideFretePeso").value = feeComponents.defaultOverridePeso.toFixed(2);
   document.getElementById("overrideFreteValor").value = feeComponents.defaultOverrideValor.toFixed(2);
   
