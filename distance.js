@@ -13,14 +13,14 @@ const cidadesAtendidas = [
     "Araraquara",
     "São Paulo"
   ];
-  
+ 
   function validarCidade(cidade) {
     return cidadesAtendidas.some(c => c.toLowerCase() === cidade.trim().toLowerCase());
   }
   
   async function getDistanceFromProxy(origem, destino) {
     // Agora usamos "origins" e "destinations" conforme o proxy espera
-    const url = `http://localhost:5000/distance?origins=${encodeURIComponent(origem)}&destinations=${encodeURIComponent(destino)}`;
+    const url = `https://proxy-api-cotacao.onrender.com/distance?origins=${encodeURIComponent(origem)}&destinations=${encodeURIComponent(destino)}`;
     console.log("[Distance] URL da requisição:", url);
     
     try {
